@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMO — Focus Companion</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  width:100vw; height:100vh; overflow:hidden;
+  background:#000; color:#fff;
+  font-family:'Syne', sans-serif; cursor:none;
+}
+
+/* ── Dot cursor ── */
+#cursor {
+  position:fixed; width:7px; height:7px;
+  background:rgba(255,255,255,0.8); border-radius:50%;
+  pointer-events:none; z-index:9999;
+  transform:translate(-50%,-50%);
+  will-change:left,top;
+}
+
+/* ── Atmosphere ── */
+#vignette {
+  position:fixed; inset:0; pointer-events:none; z-index:1;
+  background:radial-gradient(ellipse at center, transparent 25%, rgba(0,0,0,0.88) 100%);
+}
+#scanlines {
+  position:fixed; inset:0; pointer-events:none; z-index:2;
+  background:repeating-linear-gradient(0deg,
+    transparent, transparent 3px,
+    rgba(255,255,255,0.011) 3px, rgba(255,255,255,0.011) 4px);
+}
+
+/* ══════════════════════════════════
+   SETUP SCREEN
+══════════════════════════════════ */
+#setup-screen {
+  position:fixed; inset:0; z-index:100;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:#000;
+}
+.logo {
+  font-weight:800; font-size:clamp(52px,9vw,100px);
+  letter-spacing:-0.05em; margin-bottom:6px;
+}
+.tagline {
+  font-family:'Space Mono',monospace; font-size:10px;
+  letter-spacing:0.3em; color:rgba(255,255,255,0.24);
+  text-transform:uppercase; margin-bottom:52px;
+}
+.card {
+  display:flex; flex-direction:column; align-items:center; gap:26px;
+  padding:44px 52px;
+  border:1px solid rgba(255,255,255,0.06); border-radius:28px;
+  background:rgba(255,255,255,0.018); min-width:360px;
+}
+.card-label {
+  font-family:'Space Mono',monospace; font-size:9px; letter-spacing:0.25em;
+  color:rgba(255,255,255,0.24); text-transform:uppercase; align-self:flex-start;
+}
+.presets { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+.preset-btn {
+  padding:7px 16px; border:1px solid rgba(255,255,255,0.1); border-radius:100px;
+  background:transparent; color:rgba(255,255,255,0.42);
+  font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.1em;
+  cursor:pointer; transition:all 0.2s;
+}
+.preset-btn:hover, .preset-btn.active {
+  background:rgba(255,255,255,0.09); color:#fff; border-color:rgba(255,255,255,0.28);
+}
+.stepper-row { display:flex; align-items:center; gap:12px; width:100%; }
+.stepper {
+  width:40px; height:40px; border-radius:50%;
+  border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04);
+  color:#fff; font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:background 0.2s; font-family:'Space Mono',monospace; user-select:none;
+}
+.stepper:hover { background:rgba(255,255,255,0.1); }
+#min-disp {
+  font-weight:800; font-size:64px; letter-spacing:-0.04em;
+  flex:1; text-align:center; user-select:none;
+}
+#min-unit {
+  font-family:'Space Mono',monospace; font-size:10px;
+  color:rgba(255,255,255,0.26); letter-spacing:0.2em;
+  align-self:flex-end; margin-bottom:14px;
+}
+.custom-row { display:flex; align-items:center; gap:8px; }
+.custom-row input {
+  width:72px; padding:8px 12px; background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.1); border-radius:10px;
+  color:#fff; font-family:'Space Mono',monospace; font-size:14px;
+  text-align:center; outline:none; transition:border-color 0.2s;
+}
+.custom-row input:focus { border-color:rgba(255,255,255,0.3); }
+.custom-row span {
+  font-family:'Space Mono',monospace; font-size:10px;
+  color:rgba(255,255,255,0.26); letter-spacing:0.15em;
+}
+.streak-row {
+  display:flex; align-items:center; gap:10px;
+  font-family:'Space Mono',monospace; font-size:11px;
+  color:rgba(255,255,255,0.2); letter-spacing:0.1em;
+}
+.streak-val { color:#FFD740; font-weight:700; font-size:13px; }
+.start-btn {
+  width:100%; padding:18px; border:none; border-radius:14px;
+  background:#fff; color:#000; font-family:'Syne',sans-serif;
+  font-weight:700; font-size:15px; letter-spacing:0.05em;
+  cursor:pointer; transition:opacity 0.2s, transform 0.15s;
+}
+.start-btn:hover { opacity:0.86; transform:translateY(-1px); }
+.start-btn:active { transform:translateY(0); }
+
+/* ══════════════════════════════════
+   FOCUS SCREEN
+══════════════════════════════════ */
+#focus-screen {
+  position:fixed; inset:0; display:none;
+  align-items:center; justify-content:center;
+  flex-direction:column; z-index:10;
+}
+
+/* ══════════════════════════════════
+   EMO EYES CONTAINER
+══════════════════════════════════ */
+#emo-rig {
+  position:fixed;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:0px;
+  z-index:20;
+  pointer-events:none;
+  will-change:left,top;
+}
+
+#emo-glow {
+  position:absolute;
+  width:440px; height:200px;
+  border-radius:50%;
+  background:radial-gradient(ellipse, rgba(0,229,255,0.13) 0%, transparent 68%);
+  pointer-events:none; z-index:-1;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  transition:background 0.7s ease;
+}
+
+#emo-eyes {
+  display:flex;
+  gap:36px;
+  align-items:flex-end;
+}
+
+.eye-wrap {
+  display:flex; flex-direction:column;
+  align-items:center; gap:10px;
+}
+.eyebrow {
+  width:76px; height:4px; border-radius:4px;
+  background:#00E5FF;
+  box-shadow:0 0 12px #00E5FF, 0 0 28px rgba(0,229,255,0.4);
+  opacity:0;
+  transform-origin:center;
+  transition:
+    opacity   0.35s ease,
+    transform 0.5s  cubic-bezier(0.34,1.4,0.64,1),
+    background 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+.eye {
+  width:110px; height:110px;
+  border-radius:28px;
+  background:#00E5FF;
+  box-shadow:
+    0 0 32px 5px rgba(0,229,255,0.75),
+    0 0 70px 8px rgba(0,229,255,0.22);
+  position:relative;
+  overflow:hidden;
+  flex-shrink:0;
+  transition:
+    background    0.45s ease,
+    box-shadow    0.45s ease,
+    width         0.38s cubic-bezier(0.34,1.4,0.64,1),
+    height        0.38s cubic-bezier(0.34,1.4,0.64,1),
+    border-radius 0.38s ease;
+}
+
+.lid-top {
+  position:absolute; top:0; left:0; right:0; height:0;
+  background:#000; z-index:5;
+  border-radius:26px 26px 0 0;
+  transition:height 0.09s ease;
+}
+.lid-bot {
+  position:absolute; bottom:0; left:0; right:0; height:0;
+  background:#000; z-index:5;
+  border-radius:0 0 26px 26px;
+  transition:height 0.45s ease;
+}
+
+#emo-label {
+  margin-top:48px;
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+#timer-display {
+  font-family:'Space Mono',monospace;
+  font-size:clamp(13px,1.8vw,17px); letter-spacing:0.22em;
+  color:rgba(255,255,255,0.16); transition:color 0.4s;
+  text-align:center;
+}
+#status-text {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:0.35em;
+  text-transform:uppercase; opacity:0;
+  transition:opacity 0.4s, color 0.4s; min-height:18px;
+  text-align:center;
+}
+#status-text.visible { opacity:1; }
+
+#sleep-bubble {
+  position:absolute;
+  top:-55px; right:-70px;
+  width:54px; height:54px; border-radius:50%;
+  background:rgba(121,134,203,0.12);
+  border:1px solid rgba(121,134,203,0.28);
+  display:none; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:20px;
+  color:#9FA8DA;
+  box-shadow:0 0 18px rgba(121,134,203,0.16);
+}
+#sleep-bubble::before {
+  content:''; position:absolute; bottom:-8px; left:12px;
+  width:10px; height:10px; border-radius:50%;
+  background:rgba(121,134,203,0.11); border:1px solid rgba(121,134,203,0.24);
+}
+#sleep-bubble::after {
+  content:''; position:absolute; bottom:-17px; left:5px;
+  width:6px; height:6px; border-radius:50%;
+  background:rgba(121,134,203,0.08); border:1px solid rgba(121,134,203,0.18);
+}
+
+.zzz {
+  position:fixed;
+  font-family:'Syne',sans-serif; font-weight:800;
+  color:#9FA8DA; pointer-events:none; z-index:25;
+  text-shadow:0 0 12px rgba(121,134,203,0.6);
+  animation:floatZ var(--dur,3s) ease-out forwards;
+}
+@keyframes floatZ {
+  0%   { opacity:0; transform:translate(0,0) scale(0.5) rotate(-5deg); }
+  12%  { opacity:1; }
+  100% { opacity:0; transform:translate(var(--tx,20px), -100px) scale(1.1) rotate(8deg); }
+}
+
+/* ══════════════════════════════════
+   EXPRESSION STATES
+══════════════════════════════════ */
+body.state-calm .eye {
+  background:#00E5FF;
+  width:110px; height:110px; border-radius:28px;
+  box-shadow:0 0 32px 5px rgba(0,229,255,0.75), 0 0 70px 8px rgba(0,229,255,0.22);
+}
+body.state-calm #emo-glow  { background:radial-gradient(ellipse,rgba(0,229,255,0.13) 0%,transparent 68%); }
+body.state-calm .eyebrow   { background:#00E5FF; box-shadow:0 0 12px #00E5FF, 0 0 28px rgba(0,229,255,0.4); }
+
+body.state-angry .eye {
+  background:#FF1744;
+  width:110px; height:100px;
+  border-radius:12px 12px 28px 28px;
+  box-shadow:0 0 32px 5px rgba(255,23,68,0.8), 0 0 70px 8px rgba(255,23,68,0.28);
+}
+body.state-angry #emo-glow { background:radial-gradient(ellipse,rgba(255,23,68,0.11) 0%,transparent 68%); }
+body.state-angry .eyebrow  {
+  opacity:1; background:#FF1744;
+  box-shadow:0 0 14px #FF1744, 0 0 32px rgba(255,23,68,0.5);
+}
+body.state-angry .eye-wrap:nth-child(1) .eyebrow { transform:rotate(15deg)  translateY(5px) translateX(6px); }
+body.state-angry .eye-wrap:nth-child(2) .eyebrow { transform:rotate(-15deg) translateY(5px) translateX(-6px); }
+
+body.state-happy .eye {
+  background:#00E676;
+  width:118px; height:70px;
+  border-radius:50% 50% 50% 50% / 18% 18% 82% 82%;
+  box-shadow:0 0 32px 5px rgba(0,230,118,0.8), 0 0 70px 8px rgba(0,230,118,0.28);
+}
+body.state-happy #emo-glow { background:radial-gradient(ellipse,rgba(0,230,118,0.12) 0%,transparent 68%); }
+body.state-happy .eyebrow  {
+  opacity:1; background:#00E676;
+  box-shadow:0 0 12px #00E676, 0 0 28px rgba(0,230,118,0.4);
+}
+body.state-happy .eye-wrap:nth-child(1) .eyebrow { transform:rotate(-11deg) translateY(3px); }
+body.state-happy .eye-wrap:nth-child(2) .eyebrow { transform:rotate(11deg)  translateY(3px); }
+
+body.state-sleep .eye {
+  background:#7986CB;
+  width:110px; height:20px; border-radius:50%;
+  box-shadow:0 0 14px 3px rgba(121,134,203,0.65), 0 0 32px 4px rgba(121,134,203,0.22);
+}
+body.state-sleep #emo-glow { background:radial-gradient(ellipse,rgba(121,134,203,0.09) 0%,transparent 68%); }
+
+body.state-startled .eye {
+  background:#FFD740;
+  width:114px; height:122px; border-radius:32px;
+  box-shadow:0 0 44px 7px rgba(255,215,64,0.95), 0 0 90px 10px rgba(255,215,64,0.35);
+}
+body.state-startled #emo-glow { background:radial-gradient(ellipse,rgba(255,215,64,0.15) 0%,transparent 68%); }
+
+/* ── HUD ── */
+#hud {
+  position:fixed; top:28px; left:50%; transform:translateX(-50%);
+  display:none; align-items:center; gap:32px;
+  z-index:30; opacity:0; transition:opacity 0.5s;
+}
+.hud-item {
+  font-family:'Space Mono',monospace; font-size:10px;
+  letter-spacing:0.22em; color:rgba(255,255,255,0.2);
+  text-transform:uppercase; display:flex; align-items:center; gap:7px;
+}
+.hud-dot { width:5px; height:5px; border-radius:50%; background:currentColor; animation:pulse 2s infinite; }
+
+/* ── Distraction bar ── */
+#distraction-bar {
+  position:fixed; bottom:36px; left:50%; transform:translateX(-50%);
+  width:min(240px,55vw); display:none; flex-direction:column;
+  align-items:center; gap:9px; z-index:30; opacity:0; transition:opacity 0.5s;
+}
+.db-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:0.25em; color:rgba(255,255,255,0.16); text-transform:uppercase; }
+.db-track { width:100%; height:2px; border-radius:2px; background:rgba(255,255,255,0.05); overflow:hidden; }
+#db-fill  { height:100%; border-radius:2px; width:0%; background:rgba(0,229,255,0.7); transition:width 0.2s linear, background 0.4s ease; }
+
+/* ── Complete ── */
+#complete-msg {
+  position:fixed; inset:0; display:none; flex-direction:column;
+  align-items:center; justify-content:center; gap:14px; z-index:50;
+}
+.ct { font-weight:800; font-size:clamp(36px,7vw,80px); letter-spacing:-0.04em; color:#00E676; animation:fadeUp 0.9s cubic-bezier(0.22,1,0.36,1) both; }
+.cs { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.25em; color:rgba(255,255,255,0.34); animation:fadeUp 0.9s 0.12s cubic-bezier(0.22,1,0.36,1) both; }
+.ck { font-weight:700; font-size:17px; color:#FFD740; animation:fadeUp 0.9s 0.22s cubic-bezier(0.22,1,0.36,1) both; }
+.ca {
+  margin-top:22px; padding:13px 34px;
+  border:1px solid rgba(255,255,255,0.14); border-radius:100px;
+  background:transparent; color:rgba(255,255,255,0.65);
+  font-family:'Syne',sans-serif; font-weight:600; font-size:13px;
+  cursor:pointer; transition:background 0.2s, color 0.2s;
+  animation:fadeUp 0.9s 0.32s cubic-bezier(0.22,1,0.36,1) both;
+}
+.ca:hover { background:rgba(255,255,255,0.08); color:#fff; }
+
+/* ── Fullscreen nudge ── */
+#fs-nudge {
+  position:fixed; inset:0; background:rgba(0,0,0,0.94);
+  display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:200;
+}
+.fn-t { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.25em; color:rgba(255,255,255,0.4); text-transform:uppercase; text-align:center; line-height:2; }
+.fn-b { padding:13px 32px; border:1px solid rgba(255,255,255,0.14); border-radius:100px; background:transparent; color:rgba(255,255,255,0.65); font-family:'Syne',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:background 0.2s; }
+.fn-b:hover { background:rgba(255,255,255,0.08); }
+
+/* ── Keyframes ── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+@keyframes angryShake {
+  0%,100%{transform:translate(var(--ex),var(--ey))}
+  15%{transform:translate(calc(var(--ex) - 9px),calc(var(--ey) + 1px)) rotate(-1.2deg)}
+  30%{transform:translate(calc(var(--ex) + 9px),calc(var(--ey) - 1px)) rotate(1.2deg)}
+  50%{transform:translate(calc(var(--ex) - 6px),var(--ey))}
+  70%{transform:translate(calc(var(--ex) + 6px),var(--ey))}
+  85%{transform:translate(calc(var(--ex) - 3px),var(--ey))}
+}
+@keyframes startledJolt {
+  0%  {transform:translate(var(--ex),var(--ey)) scale(1)}
+  18% {transform:translate(var(--ex),calc(var(--ey) - 26px)) scale(1.1) rotate(-2deg)}
+  40% {transform:translate(var(--ex),calc(var(--ey) - 13px)) scale(1.05) rotate(1.5deg)}
+  62% {transform:translate(var(--ex),calc(var(--ey) - 19px)) scale(1.07) rotate(-1deg)}
+  82% {transform:translate(var(--ex),calc(var(--ey) - 5px)) scale(1.02)}
+  100%{transform:translate(var(--ex),var(--ey)) scale(1)}
+}
+@keyframes happyBounce {
+  0%,100%{transform:translate(var(--ex),var(--ey)) scale(1)}
+  50%    {transform:translate(var(--ex),calc(var(--ey) - 10px)) scale(1.04)}
+}
+</style>
+</head>
+<body class="state-calm">
+
+<div id="cursor"></div>
+<div id="vignette"></div>
+<div id="scanlines"></div>
+
+<div id="setup-screen">
+  <div class="logo">EMO</div>
+  <div class="tagline">Your Focus Companion</div>
+  <div class="card">
+    <div class="card-label">Session Duration</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;width:100%">
+      <div class="presets">
+        <button class="preset-btn" data-val="15">15m</button>
+        <button class="preset-btn active" data-val="25">25m</button>
+        <button class="preset-btn" data-val="45">45m</button>
+        <button class="preset-btn" data-val="60">60m</button>
+        <button class="preset-btn" data-val="90">90m</button>
+      </div>
+      <div class="stepper-row">
+        <button class="stepper" id="min-btn">−</button>
+        <div id="min-disp">25</div>
+        <div id="min-unit">MIN</div>
+        <button class="stepper" id="plus-btn">+</button>
+      </div>
+      <div class="custom-row">
+        <input type="number" id="custom-input" min="1" max="240" placeholder="—"/>
+        <span>MIN (CUSTOM)</span>
+      </div>
+    </div>
+    <div class="streak-row">🔥 Streak: <span class="streak-val" id="streak-val">0</span></div>
+    <button class="start-btn" id="start-btn">Begin Session</button>
+  </div>
+</div>
+
+<div id="focus-screen">
+  <div id="hud">
+    <div class="hud-item"><div class="hud-dot"></div><span id="hud-label">Focused</span></div>
+    <div class="hud-item" id="hud-timer">00:00</div>
+    <div class="hud-item">🔥 <span id="hud-streak">0</span></div>
+  </div>
+
+  <div id="emo-rig">
+    <div id="emo-glow"></div>
+    <div id="sleep-bubble">Z</div>
+
+    <div id="emo-eyes">
+      <div class="eye-wrap">
+        <div class="eyebrow" id="brow-l"></div>
+        <div class="eye" id="eye-l">
+          <div class="lid-top" id="lid-lt"></div>
+          <div class="lid-bot" id="lid-lb"></div>
+        </div>
+      </div>
+      <div class="eye-wrap">
+        <div class="eyebrow" id="brow-r"></div>
+        <div class="eye" id="eye-r">
+          <div class="lid-top" id="lid-rt"></div>
+          <div class="lid-bot" id="lid-rb"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="emo-label">
+      <div id="timer-display">00:00</div>
+      <div id="status-text"></div>
+    </div>
+  </div>
+
+  <div id="distraction-bar">
+    <div class="db-label">Activity Level</div>
+    <div class="db-track"><div id="db-fill"></div></div>
+  </div>
+</div>
+
+<div id="complete-msg">
+  <div class="ct">Session Complete</div>
+  <div class="cs">You stayed focused.</div>
+  <div class="ck">🔥 Streak: <span id="comp-streak">0</span></div>
+  <button class="ca" id="reset-btn">Start Another Session</button>
+</div>
+
+<div id="fs-nudge">
+  <div class="fn-t">Stay in the zone.<br>EMO needs fullscreen to protect your focus.</div>
+  <button class="fn-b" id="fs-btn">Re-enter Fullscreen</button>
+</div>
+
+<script>
+const C = {
+  MARGIN_X: 80,
+  MARGIN_Y: 80,
+  LERP_MOUSE:  0.06,
+  LERP_WANDER: 0.022,
+  LERP_SLEEP:  0.008,
+  WANDER_HOLD_MIN:  1200,
+  WANDER_HOLD_MAX:  3200,
+  WANDER_PAUSE_MIN: 400,
+  WANDER_PAUSE_MAX: 1400,
+  IDLE_THRESHOLD_MS: 1800,
+  DISTRACT_WINDOW: 4000,
+  DISTRACT_THRESH: 18,
+  CALM_RECOVER:    2800,
+  BLINK_MIN: 2200,
+  BLINK_MAX: 6000,
+  BLINK_DUR: 105,
+  SLEEP_IDLE_MS:      50000,
+  SLEEP_AUTOWAKE_MS:  18000,
+  ZZZ_INTERVAL_MS:    2000,
+};
+
+const S = {
+  sessionActive:  false,
+  sessionMinutes: 25,
+  secondsLeft:    0,
+  timerInterval:  null,
+  streak:         parseInt(localStorage.getItem('emo_streak') || '0'),
+  emoState:       'calm',
+  rigX: 0, rigY: 0,
+  tgtX: 0, tgtY: 0,
+  currentLerp: 0.06,
+  mouseX: window.innerWidth  / 2,
+  mouseY: window.innerHeight / 2,
+  lastActivity: 0,
+  isMouseIdle: false,
+  wanderX: 0, wanderY: 0,
+  wanderTimeout: null,
+  isWandering: false,
+  rigW: 260, rigH: 130,
+  isBlinking: false,
+  blinkTimeout: null,
+  isSleeping: false,
+  sleepIdleTimeout: null,
+  sleepAutoWake: null,
+  zzzInterval: null,
+  actEvents: [],
+  calmTimeout: null,
+  animFrame: null,
+  isFullscreen: false,
+};
+
+const $ = id => document.getElementById(id);
+const E = {
+  cursor:    $('cursor'),
+  setup:     $('setup-screen'),
+  focus:     $('focus-screen'),
+  minDisp:   $('min-disp'),
+  streakVal: $('streak-val'),
+  startBtn:  $('start-btn'),
+  minBtn:    $('min-btn'),
+  plusBtn:   $('plus-btn'),
+  custInput: $('custom-input'),
+  timerDisp: $('timer-display'),
+  hud:       $('hud'),
+  hudTimer:  $('hud-timer'),
+  hudStreak: $('hud-streak'),
+  hudLabel:  $('hud-label'),
+  statusTxt: $('status-text'),
+  compMsg:   $('complete-msg'),
+  compStr:   $('comp-streak'),
+  resetBtn:  $('reset-btn'),
+  distBar:   $('distraction-bar'),
+  dbFill:    $('db-fill'),
+  fsNudge:   $('fs-nudge'),
+  fsBtn:     $('fs-btn'),
+  rig:       $('emo-rig'),
+  glow:      $('emo-glow'),
+  eyeL:      $('eye-l'),
+  eyeR:      $('eye-r'),
+  lidLT:     $('lid-lt'),
+  lidLB:     $('lid-lb'),
+  lidRT:     $('lid-rt'),
+  lidRB:     $('lid-rb'),
+  sleepBub:  $('sleep-bubble'),
+  presets:   document.querySelectorAll('.preset-btn'),
+};
+
+E.streakVal.textContent = E.hudStreak.textContent = S.streak;
+
+function setMinutes(m) {
+  m = Math.max(1, Math.min(240, m));
+  S.sessionMinutes = m;
+  E.minDisp.textContent = m;
+  E.presets.forEach(b => b.classList.toggle('active', parseInt(b.dataset.val) === m));
+}
+E.plusBtn.addEventListener('click', () => setMinutes(S.sessionMinutes + 1));
+E.minBtn.addEventListener('click',  () => setMinutes(S.sessionMinutes - 1));
+E.presets.forEach(b => b.addEventListener('click', () => setMinutes(parseInt(b.dataset.val))));
+E.custInput.addEventListener('input', () => {
+  const v = parseInt(E.custInput.value); if (!isNaN(v) && v > 0) setMinutes(v);
+});
+let holdT = null;
+const startHold = d => { holdT = setInterval(() => setMinutes(S.sessionMinutes + d), 90); };
+const stopHold  = ()  => clearInterval(holdT);
+E.plusBtn.addEventListener('mousedown', () => startHold(1));
+E.minBtn.addEventListener('mousedown',  () => startHold(-1));
+['mouseup','mouseleave'].forEach(ev => {
+  E.plusBtn.addEventListener(ev, stopHold);
+  E.minBtn.addEventListener(ev, stopHold);
+});
+setMinutes(25);
+
+E.startBtn.addEventListener('click', startSession);
+
+function startSession() {
+  S.secondsLeft = S.sessionMinutes * 60;
+  S.sessionActive = true;
+  S.actEvents = [];
+  S.isSleeping = false;
+  S.lastActivity = Date.now();
+
+  E.setup.style.display = 'none';
+  E.focus.style.display = 'flex';
+  E.hud.style.display = 'flex';
+  E.distBar.style.display = 'flex';
+  E.compMsg.style.display = 'none';
+  setTimeout(() => { E.hud.style.opacity = '1'; E.distBar.style.opacity = '1'; }, 120);
+
+  S.rigX = S.tgtX = window.innerWidth  / 2;
+  S.rigY = S.tgtY = window.innerHeight / 2;
+  applyRigPos();
+
+  setEmoState('calm');
+  updateTimerDisplay();
+  startCountdown();
+  scheduleNextBlink();
+  resetSleepTimer();
+  startWander();
+  requestFS();
+}
+
+function startCountdown() {
+  clearInterval(S.timerInterval);
+  S.timerInterval = setInterval(() => {
+    if (!S.sessionActive) return;
+    S.secondsLeft--;
+    updateTimerDisplay();
+    if (S.secondsLeft <= 0) onComplete();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(Math.max(0, S.secondsLeft) / 60).toString().padStart(2,'0');
+  const s = (Math.max(0, S.secondsLeft) % 60).toString().padStart(2,'0');
+  E.timerDisp.textContent = E.hudTimer.textContent = `${m}:${s}`;
+}
+
+function onComplete() {
+  clearInterval(S.timerInterval);
+  S.sessionActive = false;
+  clearAllTimers();
+  S.streak++;
+  localStorage.setItem('emo_streak', S.streak);
+  setEmoState('happy');
+  E.focus.style.display = 'none';
+  E.hud.style.opacity = '0';
+  E.distBar.style.opacity = '0';
+  E.compMsg.style.display = 'flex';
+  E.compStr.textContent = S.streak;
+  exitFS();
+}
+
+E.resetBtn.addEventListener('click', () => {
+  E.compMsg.style.display = 'none';
+  E.setup.style.display = 'flex';
+  E.streakVal.textContent = E.hudStreak.textContent = S.streak;
+  setEmoState('calm');
+  cancelAnimationFrame(S.animFrame);
+  clearAllTimers();
+});
+
+function clearAllTimers() {
+  clearInterval(S.timerInterval);
+  clearTimeout(S.blinkTimeout);
+  clearTimeout(S.wanderTimeout);
+  clearTimeout(S.sleepIdleTimeout);
+  clearTimeout(S.sleepAutoWake);
+  clearInterval(S.zzzInterval);
+  clearTimeout(S.calmTimeout);
+}
+
+function setEmoState(state) {
+  const prev = S.emoState;
+  if (prev === state && state !== 'angry') return; 
+  S.emoState = state;
+
+  document.body.classList.remove('state-calm','state-angry','state-happy','state-sleep','state-startled');
+  document.body.classList.add(`state-${state}`);
+
+  const labels  = { calm:'Focused', angry:'Distracted', happy:'Complete', sleep:'Resting', startled:'!' };
+  const statuses = { angry:'Distracted', sleep:'Snoozing...', startled:'!!', calm:'', happy:'' };
+  const colors   = { angry:'#FF1744', sleep:'#9FA8DA', startled:'#FFD740' };
+  
+  E.hudLabel.textContent = labels[state] || '';
+  E.statusTxt.textContent = statuses[state] || '';
+  E.statusTxt.classList.toggle('visible', !!(statuses[state]));
+  if (colors[state]) E.statusTxt.style.color = colors[state];
+
+  if (state === 'angry' && prev !== 'angry') triggerShake();
+  if (state === 'happy' && prev !== 'happy') triggerHappyBounce();
+
+  if (state === 'sleep') {
+    E.lidLB.style.height = E.lidRB.style.height = '60%';
+    E.lidLT.style.height = E.lidRT.style.height = '25%';
+    E.sleepBub.style.display = 'flex';
+    startZzzParticles();
+  } else {
+    E.lidLB.style.height = E.lidRB.style.height = '0';
+    E.lidLT.style.height = E.lidRT.style.height = '0';
+    E.sleepBub.style.display = 'none';
+    clearInterval(S.zzzInterval);
+  }
+}
+
+function recordActivity() {
+  if (!S.sessionActive) return;
+  S.lastActivity = Date.now();
+  resetSleepTimer();
+  if (S.isSleeping) { wakeFromSleep(true); return; }
+
+  const now = Date.now();
+  S.actEvents.push(now);
+  S.actEvents = S.actEvents.filter(t => t > now - C.DISTRACT_WINDOW);
+
+  const ratio = Math.min(S.actEvents.length / C.DISTRACT_THRESH, 1);
+  E.dbFill.style.width = `${ratio * 100}%`;
+  E.dbFill.style.background = ratio > 0.75
+    ? 'rgba(255,23,68,0.75)' : ratio > 0.4
+    ? 'rgba(255,167,38,0.65)' : 'rgba(0,229,255,0.7)';
+
+  if (S.actEvents.length >= C.DISTRACT_THRESH) {
+    setEmoState('angry');
+    clearTimeout(S.calmTimeout);
+    S.calmTimeout = setTimeout(() => {
+      if (S.sessionActive && S.emoState === 'angry') setEmoState('calm');
+    }, C.CALM_RECOVER);
+  }
+}
+
+function resetSleepTimer() {
+  clearTimeout(S.sleepIdleTimeout);
+  if (S.sessionActive && !S.isSleeping)
+    S.sleepIdleTimeout = setTimeout(enterSleep, C.SLEEP_IDLE_MS);
+}
+function enterSleep() {
+  if (!S.sessionActive || S.isSleeping) return;
+  S.isSleeping = true;
+  setEmoState('sleep');
+  S.tgtX = window.innerWidth  / 2;
+  S.tgtY = window.innerHeight / 2;
+  S.currentLerp = C.LERP_SLEEP;
+  S.sleepAutoWake = setTimeout(() => { if (S.isSleeping) wakeFromSleep(false); }, C.SLEEP_AUTOWAKE_MS);
+}
+function wakeFromSleep(startled) {
+  if (!S.isSleeping) return;
+  S.isSleeping = false;
+  clearTimeout(S.sleepAutoWake);
+  clearInterval(S.zzzInterval);
+  E.sleepBub.style.display = 'none';
+  E.lidLB.style.height = E.lidRB.style.height = '0';
+  E.lidLT.style.height = E.lidRT.style.height = '0';
+
+  if (startled) {
+    setEmoState('startled');
+    triggerJolt();
+    setTimeout(() => {
+      if (S.sessionActive) { setEmoState('calm'); startWander(); resetSleepTimer(); }
+    }, 1200);
+  } else {
+    setEmoState('calm');
+    startWander();
+    resetSleepTimer();
+  }
+}
+
+function startZzzParticles() {
+  clearInterval(S.zzzInterval);
+  spawnZzz();
+  S.zzzInterval = setInterval(spawnZzz, C.ZZZ_INTERVAL_MS);
+}
+function spawnZzz() {
+  const rig = E.rig.getBoundingClientRect();
+  const z = document.createElement('div');
+  z.className = 'zzz';
+  const sizes  = ['13px','17px','23px'];
+  const chars  = ['z', 'Z', 'Zz'];
+  const i      = Math.floor(Math.random() * 3);
+  const startX = rig.right  - 30 + (Math.random() - 0.5) * 40;
+  const startY = rig.top    + 20 + (Math.random() - 0.5) * 30;
+  const tx     = (Math.random() - 0.5) * 60;
+  const dur    = 2.8 + Math.random() * 1.2;
+  z.style.setProperty('--dur', `${dur}s`);
+  z.style.setProperty('--tx',  `${tx}px`);
+  z.style.left     = `${startX}px`;
+  z.style.top      = `${startY}px`;
+  z.style.fontSize = sizes[i];
+  z.textContent    = chars[i];
+  document.body.appendChild(z);
+  setTimeout(() => z.remove(), (dur + 0.3) * 1000);
+}
+
+function clampTarget(x, y) {
+  const hw = S.rigW / 2, hh = S.rigH / 2;
+  const mx = C.MARGIN_X, my = C.MARGIN_Y;
+  return {
+    x: Math.max(mx + hw, Math.min(window.innerWidth  - mx - hw, x)),
+    y: Math.max(my + hh, Math.min(window.innerHeight - my - hh, y)),
+  };
+}
+
+function pickWanderTarget() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const mx = C.MARGIN_X + S.rigW / 2;
+  const my = C.MARGIN_Y + S.rigH / 2;
+  const zone = Math.random();
+  let x, y;
+
+  if (zone < 0.20) {
+    x = mx + Math.random() * (W * 0.3);
+    y = my + Math.random() * (H * 0.3);
+  } else if (zone < 0.40) {
+    x = W - mx - Math.random() * (W * 0.3);
+    y = my + Math.random() * (H * 0.3);
+  } else if (zone < 0.55) {
+    x = mx + Math.random() * (W * 0.3);
+    y = H - my - Math.random() * (H * 0.3);
+  } else if (zone < 0.70) {
+    x = W - mx - Math.random() * (W * 0.3);
+    y = H - my - Math.random() * (H * 0.3);
+  } else if (zone < 0.82) {
+    x = Math.random() < 0.5 ? mx + Math.random() * (W * 0.15) : W - mx - Math.random() * (W * 0.15);
+    y = H * 0.3 + Math.random() * H * 0.4;
+  } else {
+    x = W * 0.35 + Math.random() * W * 0.3;
+    y = H * 0.35 + Math.random() * H * 0.3;
+  }
+
+  const clamped = clampTarget(x, y);
+  S.wanderX = clamped.x;
+  S.wanderY = clamped.y;
+}
+
+function startWander() {
+  if (S.isSleeping) return;
+  S.isWandering = true;
+  doWanderStep();
+}
+
+function doWanderStep() {
+  if (!S.isWandering || S.isSleeping) return;
+  pickWanderTarget();
+  S.tgtX = S.wanderX;
+  S.tgtY = S.wanderY;
+  S.currentLerp = C.LERP_WANDER;
+
+  const holdTime  = C.WANDER_HOLD_MIN + Math.random() * (C.WANDER_HOLD_MAX  - C.WANDER_HOLD_MIN);
+  const pauseTime = C.WANDER_PAUSE_MIN + Math.random() * (C.WANDER_PAUSE_MAX - C.WANDER_PAUSE_MIN);
+
+  S.wanderTimeout = setTimeout(() => {
+    S.wanderTimeout = setTimeout(doWanderStep, pauseTime);
+  }, holdTime);
+}
+
+function applyRigPos() {
+  E.rig.style.left = S.rigX + 'px';
+  E.rig.style.top  = S.rigY + 'px';
+  E.rig.style.transform = 'translate(-50%, -50%)';
+}
+
+function triggerShake() {
+  E.rig.style.setProperty('--ex', '0px');
+  E.rig.style.setProperty('--ey', '0px');
+  E.rig.style.animation = 'none';
+  void E.rig.offsetWidth;
+  E.rig.style.animation = 'angryShake 0.55s ease-in-out';
+}
+function triggerJolt() {
+  E.rig.style.setProperty('--ex', '0px');
+  E.rig.style.setProperty('--ey', '0px');
+  E.rig.style.animation = 'none';
+  void E.rig.offsetWidth;
+  E.rig.style.animation = 'startledJolt 0.7s cubic-bezier(0.22,1,0.36,1)';
+}
+function triggerHappyBounce() {
+  E.rig.style.setProperty('--ex', '0px');
+  E.rig.style.setProperty('--ey', '0px');
+  E.rig.style.animation = 'none';
+  void E.rig.offsetWidth;
+  E.rig.style.animation = 'happyBounce 1.1s ease-in-out infinite';
+}
+
+function startMainLoop() {
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  function measureRig() {
+    const r = E.rig.getBoundingClientRect();
+    if (r.width > 0) { S.rigW = r.width; S.rigH = r.height; }
+  }
+
+  function updateTarget() {
+    const idleMs = Date.now() - S.lastActivity;
+
+    if (S.isSleeping) {
+      S.tgtX = window.innerWidth  / 2;
+      S.tgtY = window.innerHeight / 2;
+      S.currentLerp = C.LERP_SLEEP;
+    } else if (idleMs < C.IDLE_THRESHOLD_MS && !S.isMouseIdle) {
+      const clamped = clampTarget(S.mouseX, S.mouseY);
+      S.tgtX = clamped.x;
+      S.tgtY = clamped.y;
+      S.currentLerp = C.LERP_MOUSE;
+    }
+  }
+
+  function frame() {
+    S.animFrame = requestAnimationFrame(frame);
+    measureRig();
+    updateTarget();
+    S.rigX = lerp(S.rigX, S.tgtX, S.currentLerp);
+    S.rigY = lerp(S.rigY, S.tgtY, S.currentLerp);
+    applyRigPos();
+  }
+
+  cancelAnimationFrame(S.animFrame);
+  frame();
+}
+
+function scheduleNextBlink() {
+  clearTimeout(S.blinkTimeout);
+  const d = C.BLINK_MIN + Math.random() * (C.BLINK_MAX - C.BLINK_MIN);
+  S.blinkTimeout = setTimeout(doBlink, d);
+}
+function doBlink() {
+  if (S.isSleeping) { scheduleNextBlink(); return; }
+  S.isBlinking = true;
+  E.lidLT.style.height = E.lidRT.style.height = '100%';
+  setTimeout(() => {
+    E.lidLT.style.height = E.lidRT.style.height = '0';
+    setTimeout(() => {
+      S.isBlinking = false;
+      scheduleNextBlink();
+    }, C.BLINK_DUR);
+  }, C.BLINK_DUR);
+}
+
+let mouseThrottle = 0;
+document.addEventListener('mousemove', e => {
+  S.mouseX = e.clientX;
+  S.mouseY = e.clientY;
+  S.lastActivity = Date.now();
+  S.isMouseIdle = false;
+
+  E.cursor.style.left = e.clientX + 'px';
+  E.cursor.style.top  = e.clientY + 'px';
+
+  if (S.isSleeping) {
+    wakeFromSleep(true);
+    return;
+  }
+
+  S.isWandering = false;
+  clearTimeout(S.wanderTimeout);
+
+  clearTimeout(S._mouseStopTimer);
+  S._mouseStopTimer = setTimeout(() => {
+    S.isMouseIdle = true;
+    if (!S.isSleeping && S.sessionActive) startWander();
+  }, C.IDLE_THRESHOLD_MS);
+
+  const now = Date.now();
+  if (now - mouseThrottle > 80) { mouseThrottle = now; recordActivity(); }
+});
+
+document.addEventListener('mousedown', () => {
+  S.lastActivity = Date.now();
+  recordActivity();
+  if (S.isSleeping) wakeFromSleep(true);
+});
+
+document.addEventListener('keydown', e => {
+  if (['Escape','F11'].includes(e.key)) return;
+  S.lastActivity = Date.now();
+  S.isMouseIdle = false;
+  S.isWandering = false;
+  clearTimeout(S.wanderTimeout);
+  clearTimeout(S._mouseStopTimer);
+  S._mouseStopTimer = setTimeout(() => {
+    S.isMouseIdle = true;
+    if (!S.isSleeping && S.sessionActive) startWander();
+  }, C.IDLE_THRESHOLD_MS);
+  recordActivity();
+  if (S.isSleeping) wakeFromSleep(true);
+});
+
+function requestFS() {
+  const fn = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+  if (fn) fn.call(document.documentElement).then(() => S.isFullscreen = true).catch(showFSNudge);
+}
+function exitFS() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen;
+  if (fn && document.fullscreenElement) fn.call(document);
+}
+function showFSNudge() { E.fsNudge.style.display = 'flex'; }
+document.addEventListener('fullscreenchange', () => {
+  S.isFullscreen = !!document.fullscreenElement;
+  if (!S.isFullscreen && S.sessionActive) { showFSNudge(); recordActivity(); }
+  else E.fsNudge.style.display = 'none';
+});
+E.fsBtn.addEventListener('click', () => { requestFS(); E.fsNudge.style.display = 'none'; });
+
+S.rigX = S.tgtX = window.innerWidth  / 2;
+S.rigY = S.tgtY = window.innerHeight / 2;
+applyRigPos();
+startMainLoop();
+scheduleNextBlink();
+S.lastActivity = 0;
+S.isMouseIdle = true;
+startWander();
+</script>
+</body>
+</html>
